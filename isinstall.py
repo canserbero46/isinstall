@@ -5,15 +5,14 @@ import json
 
 def regex_handling(packages_list,opt='-v'):
 	if opt=='-v':
-		find_criteria=['Status']
-	elif opt=='--vv':
 		find_criteria=['Status','Version']
+	elif opt=='--vv':
+		find_criteria=['Status','Version','Architecture']
 	elif opt=='--vvv':
-		find_criteria=['Status','Version','Architecture','Maintainer']
+		find_criteria=['Status','Version','Architecture','Maintainer','Source']
 
-	sep=':-;'
 	processed_output=dict()
-	key_name='Package'
+	key_name='Package_'
 	cont=0
 	for package in packages_list:
 		cmd=('dpkg -s '+package).strip('\n').split()
@@ -24,14 +23,17 @@ def regex_handling(packages_list,opt='-v'):
 		processed_output[key_name+str(cont)].update(Details={})
 		for to_find in find_criteria:
 			aux=re.findall(to_find+':\s(.+)',cmd_PIPE)
-			if len(aux)==0:
-				processed_output[key_name+str(cont)]['Details'][to_find]='None'
+			if len(aux)==0 and to_find=='Status':
+				processed_output[key_name+str(cont)]['Details'][to_find]='Not installed'
 				break
-			processed_output[key_name+str(cont)]['Details'][to_find]=aux[0]
+			elif len(aux)==0:
+				processed_output[key_name+str(cont)]['Details'][to_find]='None'
+			else:
+				processed_output[key_name+str(cont)]['Details'][to_find]=aux[0]
 		cont+=1
 	return json.dumps(processed_output,indent=4)
 
-def manage_file(file_name,des,processed_input=''):
+def manage_file(file_name,des,processed_output=''):
 	package_list=list()
 	sep=' '
 	try:
@@ -45,7 +47,7 @@ def manage_file(file_name,des,processed_input=''):
 					package_list.append(package)
 				packages_per_line=file.readline().strip('\n')
 		elif des:
-			file.write(processed_input)
+			file.write(processed_output)
 		file.close()
 	except Exception as e:
 		print("Manage",e)
@@ -60,14 +62,12 @@ def check_opt_args(argv):
 		for opt,value in opts:
 			if opt in ["-i","--ifile"]:
 				packages_list=manage_file(value,0)
-				#print(packages_list)
 			elif opt in ["-v","--vv","--vvv"]:
 				processed_output=regex_handling(packages_list,opt)
-				print(processed_output)
 			elif opt in ["-o","--ofile"]:
 				cmd_handler=subprocess.Popen('pwd',stdout=subprocess.PIPE)
 				stdout,stderr=cmd_handler.communicate()
-				manage_file(value if value!='' else stdout.decode().strip()+'/o_default.txt',1,processed_input)
+				manage_file(value if value!='' else stdout.decode().strip()+'/o_default.txt',1,processed_output)
 	except Exception as e:
 		print(e)
 	except KeyboardInterrupt:
