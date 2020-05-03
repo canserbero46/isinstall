@@ -32,22 +32,35 @@ def regex_handling(raw_input,opt='-v'):
 
 def manage_file(file_name,des,processed_input=''):
 	raw_input=''
+	sep=':-;'
 	try:
-		file=open(file_name,'rt' if des==0 else 'wt+',encoding='utf-8')
+		find_result=list()
+		file=open(file_name,'rt' if des==0 else 'wt',encoding='utf-8')
 		if not des:
-			line=file.readline()
-			while line!="":
-				cmd=('dpkg -s '+line.strip('\n')).split(" ")
+			line=file.readline().strip('\n')
+			cont=0
+			while line!=""
 				cmd_handler=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 				stdout,stderr=cmd_handler.communicate()
-				raw_input+=stdout.decode()+stderr.decode()
-				line=file.readline()
+				raw_input=stdout.decode()+stderr.decode()
+				find_criteria=['Status','Version','Architecture','Maintainer']
+				parcial_result=''
+				for to_find in find_criteria:
+					pivot=re.findall(to_find+':\s(.+)',raw_input)
+					if len(pivot)==0:
+						parcial_result+="None"+sep
+						break
+					parcial_result+=pivot[0]+sep
+				find_result.append(parcial_result.strip(sep).split(sep))
+				find_result[cont].insert(0,line)
+				line=file.readline().strip('\n')
+				cont+=1
 		elif des:
 			file.write(processed_input)
 		file.close()
 	except Exception as e:
 		print("Manage",e)
-	return raw_input if des==0 else None
+	return find_result if des==0 else None
 
 def check_opt_args(argv):
 	short_options="ovi:"
@@ -58,6 +71,7 @@ def check_opt_args(argv):
 		for opt,value in opts:
 			if opt in ["-i","--ifile"]:
 				raw_input=manage_file(value,0)
+				print(raw_input)
 			elif opt in ["-v","-vv","-vvv"]:
 				processed_input=regex_handling(raw_input,opt)
 			elif opt in ["-o","--ofile"]:
