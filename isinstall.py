@@ -3,77 +3,67 @@
 import subprocess, sys, getopt, re
 import json
 
-def regex_handling(raw_input,opt='-v'):
-	processed_input=dict()
+def regex_handling(packages_list,opt='-v'):
 	if opt=='-v':
-		find_result=list()
-		find_criteria=['Status','Version','Architecture']
+		find_criteria=['Status']
+	elif opt=='--vv':
+		find_criteria=['Status','Version']
+	elif opt=='--vvv':
+		find_criteria=['Status','Version','Architecture','Maintainer']
+
+	sep=':-;'
+	processed_output=dict()
+	key_name='Package'
+	cont=0
+	for package in packages_list:
+		cmd=('dpkg -s '+package).strip('\n').split()
+		cmd_handler=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+		stdout,stderr=cmd_handler.communicate()
+		cmd_PIPE=stdout.decode()+stderr.decode()
+		processed_output[key_name+str(cont)]={'name':package}
+		processed_output[key_name+str(cont)].update(Details={})
 		for to_find in find_criteria:
-			find_result.append(re.findall(to_find+':\s(.+)',raw_input))
-		inner_cont=0
-		cont=0
-		for ok,not_ok in re.findall('Package:\s(.+)|(\`.+\')',raw_input):
-			cont+=1
-			processed_input['node'+str(cont)]={'name':ok if ok!='' else not_ok}
-			processed_input['node'+str(cont)].update(Details={})
-			if ok!='':
-				i_label=0
-				for label in find_criteria:
-					processed_input['node'+str(cont)]['Details'][label]=find_result[i_label][inner_cont]
-					i_label+=1
-				inner_cont+=1
-			else:
-				processed_input['node'+str(cont)]['Details'].update(Status='Not installed')
-	elif opt=='-vv':
-		pass
-	elif opt=='-vvv':
-		pass
-	return json.dumps(processed_input,indent=4)
+			aux=re.findall(to_find+':\s(.+)',cmd_PIPE)
+			if len(aux)==0:
+				processed_output[key_name+str(cont)]['Details'][to_find]='None'
+				break
+			processed_output[key_name+str(cont)]['Details'][to_find]=aux[0]
+		cont+=1
+	return json.dumps(processed_output,indent=4)
 
 def manage_file(file_name,des,processed_input=''):
-	raw_input=''
-	sep=':-;'
+	package_list=list()
+	sep=' '
 	try:
-		find_result=list()
 		file=open(file_name,'rt' if des==0 else 'wt',encoding='utf-8')
 		if not des:
-			line=file.readline().strip('\n')
-			cont=0
-			while line!=""
-				cmd_handler=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-				stdout,stderr=cmd_handler.communicate()
-				raw_input=stdout.decode()+stderr.decode()
-				find_criteria=['Status','Version','Architecture','Maintainer']
-				parcial_result=''
-				for to_find in find_criteria:
-					pivot=re.findall(to_find+':\s(.+)',raw_input)
-					if len(pivot)==0:
-						parcial_result+="None"+sep
+			packages_per_line=file.readline().strip("\n")
+			while packages_per_line!='':
+				for package in packages_per_line.split(sep):
+					if package=='':
 						break
-					parcial_result+=pivot[0]+sep
-				find_result.append(parcial_result.strip(sep).split(sep))
-				find_result[cont].insert(0,line)
-				line=file.readline().strip('\n')
-				cont+=1
+					package_list.append(package)
+				packages_per_line=file.readline().strip('\n')
 		elif des:
 			file.write(processed_input)
 		file.close()
 	except Exception as e:
 		print("Manage",e)
-	return find_result if des==0 else None
+	return package_list if des==0 else None
 
 def check_opt_args(argv):
 	short_options="ovi:"
-	long_options=["ifile=","ofile="]
+	long_options=["ifile=","ofile","vv","vvv"]
 	try:
 		opts,remainder=getopt.getopt(argv,short_options,long_options)
 		count=0
 		for opt,value in opts:
 			if opt in ["-i","--ifile"]:
-				raw_input=manage_file(value,0)
-				print(raw_input)
-			elif opt in ["-v","-vv","-vvv"]:
-				processed_input=regex_handling(raw_input,opt)
+				packages_list=manage_file(value,0)
+				#print(packages_list)
+			elif opt in ["-v","--vv","--vvv"]:
+				processed_output=regex_handling(packages_list,opt)
+				print(processed_output)
 			elif opt in ["-o","--ofile"]:
 				cmd_handler=subprocess.Popen('pwd',stdout=subprocess.PIPE)
 				stdout,stderr=cmd_handler.communicate()
